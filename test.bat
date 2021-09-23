@@ -1,0 +1,1 @@
+cls && python manage.py runserver -p 5000 --threaded

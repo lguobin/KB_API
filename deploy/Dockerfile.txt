@@ -1,0 +1,40 @@
+FROM python:3
+WORKDIR /home/lll/kb_api
+RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
+COPY requirements.txt .
+RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "./manage.py" ,"runserver", "-h", "0.0.0.0"]
+EXPOSE 5000
+
+
+docker build -t kb_demo .
+docker run -d  -p 80:5000  -it --rm --name  kb_demo kb_demo
+
+
+#======================================
+#======================================
+
+FROM python:3
+RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
+
+RUN echo 'deb http://mirrors.163.com/debian/ buster main\n\
+           deb-src http://mirrors.163.com/debian/ buster main\n'\
+              > /etc/apt/sources.list
+RUN ["apt-get", "update"]
+RUN ["apt-get", "install", "vim", "-y", "--allow-unauthenticated"]
+RUN ["apt-get", "install", "nginx", "-y", "--allow-unauthenticated"]
+
+WORKDIR /home/lll/iTest
+COPY requirements.txt .
+RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
+COPY . .
+CMD /bin/bash
+
+
+Éú²ú:
+    docker run -d -it -p 80:5000  -v /home/lll/iTest/:/home/lll/iTest/ --name apitest apitest
+
+µ÷ÊÔ:
+    docker run -d -it -p 5000:5000  -v /home/lll/iTest/temp:/home/lll/iTest/temp --name aaa apitest
+
