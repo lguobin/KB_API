@@ -8,7 +8,7 @@
 
 from .base import _BaseModel
 from app.extensions import db
-
+from app.models.tools import get_username
 
 class Project(_BaseModel):
     __tablename__ = "Project"
@@ -28,7 +28,8 @@ class Project(_BaseModel):
         return {
             "object_id": self.object_id,
             "name": self.name,
-            "uid": self.uid,
+            "uid_name": self.uid,
+            "uid": get_username("UID", self.uid),
             "projectTestType": self.projectTestType,
             "version": self.version,
             "create_at": self.created_at,

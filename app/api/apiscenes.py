@@ -35,9 +35,10 @@ def addscenes():
         require_items = get_post_items(request, Scenes.REQUIRE_ITEMS, throwable=True)
         option_items = get_post_items(request, Scenes.OPTIONAL_ITEMS)
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
         _model = get_models_filter(Scenes, Scenes.name == require_items["name"])
         if _model != []:
-            return jsonify({'status': 'failed', 'msg': '场景已存在'})
+            return jsonify({'status': 'failed', 'data': '场景已存在'})
         _model = create_model(Scenes, **require_items)
         return jsonify({'status': 'ok', 'object_id':_model.object_id})
     except BaseException as e:
@@ -92,7 +93,8 @@ def delScenes(object_id):
     if _model != None:
         delete_model(Scenes, object_id)
         return {
+            "status": "ok",
             "object_id": object_id,
-            }
+        }
     else:
         return jsonify({'status': 'failed', 'data': '删除不存在的对象'})

@@ -3,6 +3,8 @@ KB_iTest API Document
 ---
  - **更新说明**
 ```js
+* 用例设计支持需要上传附件\文件的被测接口（2021年10月8日 11:52:32）
+* 定时服务加入企微消息通知（除了邮件形式还可以企微消息通知）
 * 加入批量用例导入功能(2021年9月18日 14:08:28)
 * 新加入场景设计与执行(2021年9月13日 10:44:55)
 * 加入定时任务监听处理，用户获取token权限优化
@@ -41,7 +43,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -78,7 +80,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -106,7 +108,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -136,7 +138,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -173,7 +175,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -196,13 +198,13 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
 ---
 ### 用户信息查看与管理
-URL地址：/api/userlist
+URL地址：/api/user/list
 请求方式：PUT
 权限：Admin 权限
 
@@ -218,7 +220,7 @@ URL地址：/api/userlist
 ---
 用法：
 ```json
-GET  http://{ip:port}/api/userlist
+GET  http://{ip:port}/api/user/list
 response:
 {
     "total": 共多少条记录,
@@ -229,9 +231,12 @@ response:
         数据详情 - 所有字段与 POST 请求的参数一致
     ]
 }
+搜索用户:
+GET  http://{ip:port}/api/user/list?q="搜索条件"
+
 
 添加用户:
-PUT  http://{ip:port}/api/userlist
+PUT  http://{ip:port}/api/user/list
 Body：
 {
     "object_id":"be12bf63d4bd4d519c7d0e679c7ad8ab",
@@ -252,7 +257,7 @@ reponse:
 }
 
 重置用户密码:
-PUT  http://{ip:port}/api/userlist
+PUT  http://{ip:port}/api/user/list
 Body {"object_id": "用户object_id", "Option": "reset_password"}
 reponse:
 {
@@ -260,8 +265,8 @@ reponse:
     "status": "ok"
 }
 
-删除用户:
-PUT  http://{ip:port}/api/userlist
+禁用(软删除)用户:
+PUT  http://{ip:port}/api/user/list
 Body {"object_id": "用户object_id", "Option": "delete"}
 reponse:
 {
@@ -284,13 +289,45 @@ Error-Response:
 }
 ```
 ---
-## 搜索
+---
+## 单一列表内容搜索（单个列表模糊搜索）
+URL地址：/search
+请求方式：GET
+
+| 字段 | 类型 | 描述 |
+|:-------------:|:-------------|
+| q | String | 按名字搜索(模糊搜索，有分页处理) |
+| u | String | 按创建者(模糊搜索，有分页处理) |
+
+* 用法与获取分页
+```json
+GET     http://{ip}/api/${Function}?page=｛页数｝&q=｛按名字模糊搜索｝&q=｛按创建者模糊搜索｝
+```
+
+Success-Response:
+```json
+{
+    "status": "ok",
+    "results": "results"
+}
+```
+Error-Response:
+```json
+{
+    "status": "failed",
+    "data": "message"
+}
+```
+---
+## 全局搜索
 URL地址：/search
 请求方式：GET
 
 | 字段 | 类型 | 描述 |
 |:-------------:|:-------------|
 | q | String | 搜索内容 |
+| u | String | 搜索创建者（必须要得有搜索内容才会筛选创建者） |
+
 Success-Response:
 ```json
 {
@@ -355,9 +392,10 @@ Error-Response:
 ---
 URL地址：/<String:env_object_id>/globalParams
 请求方式：POST
+
 | 字段 | 类型 | 描述 |
 |:-------------:|:-------------|
-| env_object_id | String | 环境变量的 object_id(必填) |
+| env_object_id | String | 环境变量的 object_id(只用于拼接url，body不需要传参) |
 | name | String | 变量名字(必填) |
 | value | String | 变量值 |
 | uid | String | 用户object_ID(必填) |
@@ -685,28 +723,39 @@ URL地址：/export_csvDemo
 Success-Response:
 ```json
 {
-    【文件流，通过浏览器或其他下载工具把 csv 文件保存在本地】
+    "file": "文件流，通过浏览器或其他下载工具把 csv 文件保存在本地"
 }
+```
 ---
 ### 用例模板导入
-URL地址：/inputTestCases
+URL地址：/<String:pid>/inputTestCases
 请求方式：POST
 | 字段 | 类型 | 描述 |
 |:-------------:|:-------------|
+| pid | String | 项目object_ID(仅用于拼接URL，Body不需要传参) |
 | uid | String | 用户object_ID(必填) |
 | files | Files | 文件流，就是下载的csv文件(必填) |
 Success-Response:
 ​```json
 {
-    "msg": "导入成功"
+    "status": "ok",
+    "data": "导入成功"
 }
 ​```
+Error-Response:
+```json
+{
+    "status": "failed",
+    "data": "message"
+}
+```
 ---
 ## 用例管理
 ---
 ### 获取用例信息
 URL地址：/tcase
 请求方式：GET
+
 Success-Response:
 ​```json
 {
@@ -720,7 +769,7 @@ Success-Response:
 }
 ```
 Error-Response:
-```json
+​```json
 {
     "status": "failed",
     "data": "message"
@@ -744,7 +793,7 @@ URL地址：/addcase、/putcase/<string:object_id>、/delcase/<string:object_id>
 | requestBody | list - String | 用例请求体(必填), 无则传空字符串 |
 | setGlobalVars | list - String | （选填）只要有值就可以实现全局变量，设置：[{"name": "变量名", "query": ["返回值id"]}] |
 | 在Body中使用全局变量方法 | String | 例子：{"token": "${变量名}"} |
-| parameterType | String | 用例请求体类型(必填), 如：json、from、file |
+| parameterType | String | 用例请求体类型(必填), 必填三选一：json、from、file |
 | checkoptions | Int | 断言开关(选填-校验 response) |
 | checkSpendSeconds | Float | 限定接口返回时间，如果超过该时间表示测试不通过 |
 | checkResponseCode | Int | 验证接口返回状态码 |
@@ -755,7 +804,7 @@ URL地址：/addcase、/putcase/<string:object_id>、/delcase/<string:object_id>
 | delay | Int | 延时请求 |
 | variable_1 | String | 临时缓存信息1 |
 | variable_1 | String | 临时缓存信息2 |
-| filePath | String | 文件路径 |
+| filePath | list - String | 文件路径；parameterType参数标记为file才启用，接收参数为：[{"file": "test.txt", "name": "aaaa", "Content-Type": ...}]（下面有详细说明） |
 | description | String | 描述信息 |
 
 * 例子:
@@ -803,6 +852,104 @@ Success-Response:
 ```json
 {
     "object_id": "object_id"
+}
+```
+Error-Response:
+```json
+{
+    "status": "failed",
+    "data": "message"
+}
+```
+---
+### 测试用例文件请求方式说明
+---
+#### 上传文件
+* 操作说明
+```sh
+该接口就是为了解决 OSS 这种既要上传文件，也可以附带 form-data 参数的接口:
+1. 先让用户通过 {/api/uploads} 接口把文件上传到服务器，如果文件重名是直接覆盖，也可通过 {/api/uploads} 接口查看服务器已上传的文件目录，暂不开放编辑&删除处理
+2. 创建\修改用例 parameterType 参数标记为String类型的 【 file 】
+3. 创建\修改用例 filePath 参数标记数组类型为 [{"file": "文件名字含文件后缀", "name": "自定义文件名", "Content-Type": "文件类型，默认为空，后台自动标记"}, {"file": "AAA.txt", "name": "AAA_名字", "Content-Type": "" 或 Null}]（备注：支持多附件）
+4. filePath 参数 value中的 file必须要与上传文件的名字一一对应，找不到文件默认传Null
+5. 备用方法 ---->> 如果觉得操作繁琐可以自行考虑其他方式
+
+
+操作如下:
+    查看已经上传到服务器中的文件：
+        - GET  http://{ip}/api/uploads
+
+    上传文件(支持一次多文件上传):
+        - POST http://{ip}/api/uploads
+----------------------------------
+|    keys     |     values(IO Stream)     |
+--------------------------------
+|   files     |  上传文件名_1.doc  |
+|   files     |  上传文件名_2.doc  |
+|   .....     |  .....  |
+
+创建\修改用例提交参数时的例子：
+{
+    ......
+    "parameterType": "file",
+    "requestBody": [需要提交的 form-data 参数],
+    "filePath": [{"file": "上传文件名_1.doc", "name": "上传文件名_1", "Content-Type": 66666}, {"file": "上传文件名_2.doc", "name": "自定义张三文件名"}],
+    ......
+}
+```
+---
+URL地址：/uploads
+请求方式：POST
+请求参数：
+| 字段 | 类型 | 描述 |
+|:-------------:|:-------------|
+| files | IO-stream | 本地文件路径(文件最大支持128MB，可批量选择文件上传，不会限制文件类型与编码) |
+* 例子:
+```json
+POST http://{ip}/api/uploads
+
+form-data:
+    files - "本地文件1.text"
+    files - "本地文件2.csv"
+    files - "本地文件3.exe"
+```
+Success-Response:
+```json
+{
+    "data": "上传成功",
+    "status": "ok"
+}
+```
+Error-Response:
+```json
+{
+    "status": "failed",
+    "data": "message"
+}
+```
+---
+#### 查看已上传文件
+URL地址：/uploads
+请求方式：GET
+* 暂不开放编辑、删除文件
+
+Success-Response:
+```json
+{
+    "data": {
+        "fileTotal": "上传文件数量汇总",
+        "files": "文件列表"[
+            {
+                "fileUploadtime": "上传时间",
+                "fileName": "文件名",
+                "filePathName": "文件路径+文件名",
+                "fileSize": "文件大小",
+                "fileType": "file 或 dir | 注释: 枚举值 file(标识文件) 、 dir(标识目录)",
+            },
+        ],
+        
+    },
+    "status": "ok"
 }
 ```
 Error-Response:
@@ -1112,7 +1259,7 @@ Success-Response:
 Error-Response:
 ```json
 {
-    "code": "code",
+    "status": "failed",
     "data": "message"
 }
 ```
@@ -1174,10 +1321,11 @@ URL地址：/nodifycron/<string:object_id>
 | 字段 | 类型 | 描述 |
 |:-------------:|:-------------|
 | object_id | String | 创建任务返回的object_id |
-| nodify | Int | 0标识恢复任务，1表示暂停任务 |
+| job_status | Int | 参数二选一，0表示恢复任务，1表示暂停任务 |
 * 例子:
 ```json
-{"nodify": 0}
+{"job_status": 0}
+{"job_status": 1}
 ```
 ---
 ### 查看所有任务信息、暂停、恢复、删除（只有管理员有该权限）

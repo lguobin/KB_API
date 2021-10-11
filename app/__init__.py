@@ -1,7 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from settings import config
 from app.api import api_blueprint
-from app.common.errors import Errors
+from app.common.message import Errors
 from app.extensions import config_extentions, setup_log
 
 # from flask import current_app
@@ -10,6 +10,12 @@ from app.extensions import config_extentions, setup_log
 app = Flask(__name__)
 Apps = app.app_context().push()
 
+
+@app.route('/', methods=['GET'])
+@app.route('/apis', methods=['GET'])
+def doc_API():
+    # print("API ËµÃ÷ÎÄµµ")
+    return render_template("apis.html")
 
 
 def create_app(config_name):

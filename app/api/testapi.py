@@ -1,4 +1,4 @@
-from flask import jsonify, Blueprint, request
+from flask import jsonify, Blueprint, request, g
 from app.models import *
 from app.common.helper import *
 from app.common.decorator import jwt_role
@@ -43,6 +43,7 @@ def ByDebug():
     request_data = request.get_json(force=True)
     request_data.update({
         "executionMode": "manual",
+        "uid": g.user_object_id,
     })
 
     EnvId = request_data.get("EnvId")
@@ -60,9 +61,9 @@ def ByDebug():
         return _err
 
     send_and_save_report(__caseList)
+    print(__caseList)
     return jsonify({'status': 'ok', 'data': '测试完毕, 稍后前往「DebugLastResult」中获取结果'})
     # except BaseException as e:
-    #     return jsonify({'status': 'failed', 'data': '状态错误%s' % e})
 
 
 @startAPI.route('/ByInterface', methods=['POST'])
@@ -86,7 +87,7 @@ def ByInterface():
     __Inf = request_data.get("Interface")
 
     action = {
-        "uid": request_data.get("uid"),
+        "uid": g.user_object_id,
         "executionMode": "manual",
     }
     case = composeCaseWorkshop(EnvId=__ENV, ProjectId=__Pid, Interface=__Inf)

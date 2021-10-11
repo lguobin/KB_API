@@ -4,7 +4,7 @@ from datetime import datetime
 from functools import wraps
 from threading import Thread
 from werkzeug.local import LocalProxy
-from flask import request, jsonify, _request_ctx_stack, current_app
+from flask import request, jsonify, _request_ctx_stack, current_app, g
 
 def async_test(f):
     @wraps(f)
@@ -71,36 +71,37 @@ def jwt_role(role=None):
         def _re(*args, **kwargs):
             auth_header_value = request.headers.get('Authorization', None)
             if not auth_header_value:
-                return jsonify(code='2100', msg='Authorization缺失')
+                return jsonify(status='failed', data='Authorization缺失')
 
             parts = auth_header_value.split()
             if len(parts) == 1:
-                return jsonify(code='2100', msg='Token缺失')  # code 仅作为示例
+                return jsonify(status='failed', data='Token缺失')  # code 仅作为示例
 
             elif len(parts) > 2:
-                return jsonify(code='2100', msg='Token无效')
+                return jsonify(status='failed', data='Token无效')
 
             token = parts[1]
             if token is None:
-                return jsonify(code='2100', msg='Token异常')
+                return jsonify(status='failed', data='Token异常')
 
             try:
                 payload = jwt_decode(token)
             except jwt.InvalidTokenError as e:
-                return jsonify(code='2100', msg=str(e))
+                return jsonify(status='failed', data=str(e))
 
             _request_ctx_stack.top.current_identity = payload.get('identity')
 
             identity = payload.get('identity')
             if identity is None:
-                return jsonify(code='2100', msg='用户不存在或已停用')
+                return jsonify(status='failed', data='用户不存在或已停用')
 
+            g.user = identity.get("name")
+            g.user_object_id = identity.get("object_id")
             if role == 'admin':
                 if identity.get("role") == 1:
                     return func(*args,**kwargs)
                 else:
-                    return jsonify(code='2100', msg='Permission Denied')
-
+                    return jsonify(status='failed', data='Permission Denied')
             else:
                 return func(*args,**kwargs)
 

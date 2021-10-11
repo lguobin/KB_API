@@ -4,6 +4,7 @@ import ssl
 import json
 import time
 import requests
+from settings import basedir
 from app.common.utils import *
 from app.common.globalParams import _Cache
 from app.common.decorator import async_test
@@ -61,53 +62,58 @@ def send_and_save_report_BySuite(test_list, action={}):
         "spendTimeInSec" : 0.029
     }
     """
-    Detail = {}
-    totalCount = 0
-    passCount = 0
-    failCount = 0
-    errorCount = 0
-    report_StartTime = time.time()
+    if test_list != []:
+        Detail = {}
+        totalCount = 0
+        passCount = 0
+        failCount = 0
+        errorCount = 0
+        report_StartTime = time.time()
 
-    result_list = manual_test_by_case(test_list)
-    if result_list == []:
-        return {'status': 'failed', 'data': '测试接口引发异常错误'}
+        result_list = manual_test_by_case(test_list)
+        if result_list == []:
+            return {'status': 'failed', 'data': '测试接口引发异常错误'}
+        else:
+            for x in range(len(result_list)):
+                totalCount = len(result_list)
+                status = result_list[x].get("status")
+                if status == resp_status.get(0):
+                    passCount += 1
+                elif status == resp_status.get(1):
+                    failCount += 1
+                elif status == resp_status.get(2):
+                    errorCount += 1
+
+                Detail.update({
+                    # result_list[x].get("Interface_id") : [result_list[x] for x in range(len(result_list))],
+                    result_list[x].get("Interface_id") : [
+                        result_list[index] for index in range(len(result_list))
+                        if result_list[index].get("Interface_id") == result_list[x].get("Interface_id")
+                    ],
+                })
+
+        result_report = {
+            "uid" : action.get("uid"),
+            "executionMode": action.get("executionMode"),
+            "cronJobId": action.get("cronJobId"),
+            "EnvName": test_list[0].get("EnvName"),
+            "EnvId": test_list[0].get("EnvId"),
+
+            "StartTime": int(report_StartTime),
+            "Project_id": test_list[0].get("Project_id"),
+            "interfaces_Suites_CaseDetail": Detail,
+            "totalCount": totalCount,
+            "passCount": passCount,
+            "failCount": failCount,
+            "errorCount": errorCount,
+            "spendTimeInSec": round(time.time() - report_StartTime, 3),
+        }
+        save_TestReport(result_report)
     else:
-        for x in range(len(result_list)):
-            totalCount = len(result_list)
-            status = result_list[x].get("status")
-            if status == resp_status.get(0):
-                passCount += 1
-            elif status == resp_status.get(1):
-                failCount += 1
-            elif status == resp_status.get(2):
-                errorCount += 1
-
-            Detail.update({
-                # result_list[x].get("Interface_id") : [result_list[x] for x in range(len(result_list))],
-                result_list[x].get("Interface_id") : [
-                    result_list[index] for index in range(len(result_list))
-                    if result_list[index].get("Interface_id") == result_list[x].get("Interface_id")
-                ],
-            })
-
-
-    result_report = {
-        "uid" : action.get("uid"),
-        "executionMode": action.get("executionMode"),
-        "cronJobId": action.get("cronJobId"),
-        "EnvName": test_list[0].get("EnvName"),
-        "EnvId": test_list[0].get("EnvId"),
-
-        "StartTime": int(report_StartTime),
-        "Project_id": test_list[0].get("Project_id"),
-        "interfaces_Suites_CaseDetail": Detail,
-        "totalCount": totalCount,
-        "passCount": passCount,
-        "failCount": failCount,
-        "errorCount": errorCount,
-        "spendTimeInSec": round(time.time() - report_StartTime, 3),
-    }
-    save_TestReport(result_report)
+        _err_msg = "因为找不到项目或接口下的用例，无法执行测试"
+        result_report = {'status': 'failed', 'data': _err_msg}
+        print(result_report)
+        return result_report
     return True
 
 
@@ -143,8 +149,11 @@ def execute_single_case_test(max_retries=5, **params):
 
     if params is not None and len(params) > 0:
         # 处理请求体与请求头
-        returned_data["Project_id"] = params["Project_id"]
+
+        # 前端说废弃
+        # returned_data["Project_id"] = params["Project_id"]
         returned_data["Interface_id"] = params["Interface_id"]
+        returned_data["testcase_name"] = params["name"]
         returned_data["object_id"] = params["object_id"]
 
         response_json = dict()
@@ -153,9 +162,18 @@ def execute_single_case_test(max_retries=5, **params):
         check_response_body = None
         check_response_number = None
 
+        check_connect_mysql = None
+        check_connect_redis = None
+
         request_url = params["route"]
         if params["redis"] != None:
-            global_vars = _Cache(**params["redis"]).get_GlobalParams()
+            try:
+                global_vars = _Cache(**params["redis"]).get_GlobalParams()
+            except BaseException as e:
+                global_vars = {}
+                check_connect_mysql = False
+                check_connect_redis = False
+                print("由于连接方在一段时间后没有正确答复或连接的主机没有反应，连接尝试失败!")
         else:
             global_vars = {}
 
@@ -174,7 +192,7 @@ def execute_single_case_test(max_retries=5, **params):
             params['route'] = request_url
 
 
-        elif params['Body'] != None:
+        elif params['parameterType'] == "json" and params['Body'] != None:
             if params["Body"] != None or params["Body"] != "":
                 # 替换faker变量
                 request_body_str = resolve_faker_var(init_faker_var=params["Body"])
@@ -198,12 +216,15 @@ def execute_single_case_test(max_retries=5, **params):
                 params["Body"] = ast.literal_eval(request_body_str)
 
 
+
         if type(params["Headers"]) == str and params["Headers"] != "":
             params["Headers"] = eval(params["Headers"])
         elif type(params["Headers"]) == list:
             return False
         else:
             params["Headers"] = {}
+
+
 
 
         if "parameterType" in params and params["parameterType"] == "form":
@@ -215,19 +236,24 @@ def execute_single_case_test(max_retries=5, **params):
                 verify=False
                 )
 
-        elif "parameterType" in params and params["parameterType"] == "file":
-            if "filePath" in params and params["filePath"]:
-                print("filePath  ---> ", params["filePath"])
-            files = {"files": open(params["filePath"], "rb")}
-            response = session.request(
-                url=params["route"],
-                method=params["Method"],
-                data=params["Body"],
-                headers=params["Headers"],
-                files=files,
-                verify=False
-            )
+        elif "parameterType" in params and params["parameterType"] == "file" or params["parameterType"] == "files":
+            # if "filePath" in params and params["filePath"]:
+            print("打印 - filePath  ---> ", params["filePath"])
 
+            # 保证 Body 不能为 Null
+            if params["Body"] == None or params["Body"] == "":
+                params["Body"] = {}
+            try:
+                response = session.request(
+                    url=params["route"],
+                    method=params["Method"],
+                    data=eval(params["Body"]),
+                    headers=params["Headers"],
+                    files=Open_Upfiles(params["filePath"]),
+                    verify=False
+                )
+            except BaseException as e:
+                print("Body转换成 form-data 可能出错了, 需要检查参数", e)
         else:
             response = session.request(
                 url=params["route"],
@@ -292,6 +318,7 @@ def execute_single_case_test(max_retries=5, **params):
                     returned_data["checkResponseBody"] = check_response_body
 
 
+
             # 结果导出
             if check_spend_seconds and check_spend_seconds < returned_data['elapsedSeconds']:
                 returned_data["status"] = "failed"
@@ -334,6 +361,20 @@ def execute_single_case_test(max_retries=5, **params):
             if returned_data["status"] == "pass":
                 returned_data["Conclusion"].append({"resultType": resp_status.get(0), 'reason': '测试通过'})
 
+        # 如果链接 redis 或 Mysql 出错，直接测试失败
+        if check_connect_redis == False:
+            returned_data["status"] = "failed"
+            returned_data["Conclusion"].append(
+                {"resultType": resp_status.get(1),
+                "reason": "连接 Redis 主机没有反应，尝试连接失败。"}
+            )
+
+        if check_connect_mysql == False:
+            returned_data["status"] = "failed"
+            returned_data["Conclusion"].append(
+                {"resultType": resp_status.get(1),
+                "reason": "连接 Mysql 主机没有反应，尝试连接失败。"}
+            )
 
         if not returned_data["Conclusion"]:
             returned_data["status"] = "pass"
@@ -347,10 +388,26 @@ def execute_single_case_test(max_retries=5, **params):
             }]
 
         returned_data["dataInitResult"] = "数据初始化结果"
-
     else:
         return None
     return returned_data
 
 
+def Open_Upfiles(_file):
+    # 返回:
+    #     [
+    #       {"file": "test.txt", "name": "文件的上传名字叫啥", "Content-Type": "文件内容默认为Null"},
+    #       {"file": "AAAAA.txt", "name": "ccccc", "Content-Type": Null}
+    #     ]
+    Open_list = []
+    try:
+        from settings import Config
+        files = lambda name, file:('files',(name, open(
+            Config.UPLOAD_PATH +"/"+ Config.UPLOAD_FOLDER +"/"+ file,'rb')))
+        for _ in range(len(_file)):
+            Open_list.append(files(_file[_].get("name"), _file[_].get("file"), _file[_].get("Content-Type")))
+        print(Open_list)
+        return Open_list
+    except BaseException as e:
+        return None
 

@@ -25,9 +25,11 @@ def addenv():
         require_items = get_post_items(request, EnvConfig.REQUIRE_ITEMS, throwable=True)
         option_items = get_post_items(request, EnvConfig.OPTIONAL_ITEMS)
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
+
         _model = get_models_filter(EnvConfig, EnvConfig.name == require_items["name"])
         if _model != []:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
 
         _model = create_model(EnvConfig, **require_items)
         return jsonify({'status': 'ok', 'object_id':_model.object_id})
@@ -64,7 +66,7 @@ def putenv(object_id):
 
         _temp = get_models_filter(EnvConfig, EnvConfig.name == name)
         if len(_temp) > 1:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
 
         _model.name = name
         _model.uid = uid
@@ -75,7 +77,8 @@ def putenv(object_id):
         _model.description = description
         update_models(_model)
         return {
-            "object_id": object_id,
+            'status': 'ok',
+            'object_id': object_id,
         }
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '修改错误%s' % e})
@@ -93,6 +96,7 @@ def delenv(object_id):
             return jsonify({'status': 'failed', 'data': '删除不存在的对象'})
         delete_model(EnvConfig, object_id)
         return {
+            'status': 'ok',
             "object_id": object_id,
         }
     except BaseException as e:

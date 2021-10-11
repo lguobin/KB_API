@@ -1,4 +1,4 @@
-from flask import jsonify, Blueprint, request
+from flask import jsonify, Blueprint, request, g
 from app.common.decorator import jwt_role
 from app.models import *
 from app.common.helper import *
@@ -6,6 +6,17 @@ from app.common.helper import *
 
 
 tcase = Blueprint("tcase", __name__)
+
+
+
+@tcase.route('/tcase/<object_id>', methods=['GET'])
+@jwt_role()
+def tcase_details(object_id):
+    _model = get_model(TestCase, object_id)
+    if _model != None:
+        return jsonify({'status': 'ok', 'object_id':_model.get_json()})
+    else:
+        return jsonify({'status': 'failed', 'data':'找不到用例'})
 
 
 @tcase.route('/addcase', methods=['POST'])
@@ -54,23 +65,26 @@ def addcase():
         "filePath":"pwd"
     }
     """
-    # try:
-    require_items = get_post_items(request, TestCase.REQUIRE_ITEMS, throwable=True)
-    option_items = get_post_items(request, TestCase.OPTIONAL_ITEMS)
-    require_items.update(option_items)
+    try:
+        require_items = get_post_items(request, TestCase.REQUIRE_ITEMS, throwable=True)
+        option_items = get_post_items(request, TestCase.OPTIONAL_ITEMS)
+        require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
+
+        if type(require_items["headers"]) == list:
+            require_items["headers"] = str(require_items["headers"])[1:-1]
+
+        if type(require_items["requestBody"]) == list:
+            require_items["requestBody"] = str(require_items["requestBody"])[1:-1]
 
 
-    if type(require_items["headers"]) == list:
-        require_items["headers"] = str(require_items["headers"])[1:-1]
-    if type(require_items["requestBody"]) == list:
-        require_items["requestBody"] = str(require_items["requestBody"])[1:-1]
-
-    _model = get_models_filter(TestCase, TestCase.name == require_items["name"])
-    if _model != []:
-        return jsonify({'status': 'failed', 'data': '名字已存在'})
-
-    case_model = create_model(TestCase, **require_items)
-    return jsonify({'status': 'ok', 'object_id':case_model.object_id})
+        _model = get_models_filter(TestCase, TestCase.name == require_items["name"])
+        if _model != []:
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
+        case_model = create_model(TestCase, **require_items)
+        return jsonify({'status': 'ok', 'object_id':case_model.object_id})
+    except BaseException as e:
+        return jsonify({'status': 'failed', 'data': '新建失败%s' % e})
 
 
 @tcase.route('/putcase/<object_id>', methods=['PUT'])
@@ -168,6 +182,7 @@ def putcase(object_id):
 
         update_models(_model)
         return {
+            'status': 'ok',
             "object_id": object_id,
         }
     except BaseException as e:
@@ -185,7 +200,10 @@ def delcase(object_id):
         if _model is None:
             return jsonify({'status': 'failed', 'data': '删除不存在的对象'})
         delete_model(TestCase, object_id)
-        return {}
+        return {
+            "status": "ok",
+            "object_id": object_id,
+        }
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '删除错误%s' % e})
 

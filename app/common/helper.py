@@ -4,28 +4,30 @@ from settings import Config
 from app.models import *
 from app.extensions import db
 from app.models.base import _BaseModel
-from app.common.errors import DBError
+from app.common.message import DBError
 
 
 
-def Pages(_request, _TABLE):
-    # 获取分页数据
+# 获取分页数据
+def Pages(_request, _TABLE, _filter=None):
     page = get_page_value(_request)
     per_page = get_per_page_value(_request, Config.PER_PAGE, Config.MAX_PER_PAGE)
     paging = get_query_data(_request, "paging", 1)
-    filter_params = [_TABLE.state == _TABLE.STATE_NORMAL]
+    filter_params = _filter
     if bool(int(paging)):
-        pagination = get_models_filter_with_pagination(_TABLE, None, page, per_page, desc, *filter_params)
+        pagination = get_models_filter_with_pagination(_TABLE, "", page, per_page, desc, *filter_params)
         total = pagination['total']
         models = pagination['models']
         data = [model.get_json() for model in models]
         return {
+            'status': 'ok',
             'total': total,
             'page': page,
             'pages': get_pages(total, per_page),
             'per_page': per_page,
             'results': data
         }
+
 
 def input_files(pid, *row):
     # 批量导入接口测试用例，不存在就创建
@@ -139,6 +141,8 @@ def composeCaseWorkshop(EnvId, ProjectId=None, Interface=None, Tcase=None):
                             "Method": __case[x].requestMethod,
                             "Body":  __case[x].requestBody,
                             "Headers": __case[x].headers,
+                            "parameterType": __case[x].parameterType,
+                            "filePath": __case[x].filePath,
 
                             "setGlobalVars":  __case[x].setGlobalVars,
 
@@ -177,6 +181,8 @@ def composeCaseWorkshop(EnvId, ProjectId=None, Interface=None, Tcase=None):
                                 "Method": __case[x].requestMethod,
                                 "Body":  __case[x].requestBody,
                                 "Headers": __case[x].headers,
+                                "parameterType": __case[x].parameterType,
+                                "filePath": __case[x].filePath,
 
                                 "setGlobalVars":  __case[x].setGlobalVars,
 
@@ -219,6 +225,8 @@ def composeCaseWorkshop(EnvId, ProjectId=None, Interface=None, Tcase=None):
                             "Method": _temp.requestMethod,
                             "Body": _temp.requestBody,
                             "Headers": _temp.headers,
+                            "parameterType": _temp.parameterType,
+                            "filePath": _temp.filePath,
 
                             "setGlobalVars": _temp.setGlobalVars,
 
@@ -257,14 +265,20 @@ def save_TestReport(_response):
 
 
 def get_TestReport(_model):
+    from app.models.tools import get_username
     if _model != None:
         return {
+            "status": "ok",
             "object_id": _model.object_id,
             "uid": _model.uid,
+            "uid_name": get_username("UID", _model.uid),
+            "Project_id_name": get_username("PID", _model.Project_id),
+
             "EnvId":_model.EnvId,
             "EnvName":_model.EnvName,
-            "executionMode ":_model.executionMode ,
-            "cronJobId":_model.cronJobId,
+            "executionMode":_model.executionMode ,
+            "mission_name":_model.cronJobId,
+            # "cronJobId":_model.cronJobId,
             "Project_id":_model.Project_id,
             "StartTime":_model.StartTime,
             "interfaces_Suites_CaseDetail":_model.interfaces_Suites_CaseDetail,
@@ -277,8 +291,7 @@ def get_TestReport(_model):
             "updated_at": _model.updated_at,
         }
     else:
-        return {"message": "报告不存在或已被删除!"}
-
+        return {"status": "failed", "data": "报告不存在或已被删除!"}
 
 
 # ------------------------------
@@ -294,8 +307,18 @@ def get_first_one_model(table_class):
     return db.session.query(table_class).order_by(table_class.updated_at.desc()).first()
 
 
-def get_like(table_class, params):
-    return db.session.query(table_class).filter(table_class.name.like("%"+params+"%")).all()
+def get_like(table_class, params, _user=None):
+    if params != None and _user == None:
+        return db.session.query(table_class).filter(table_class.name.like("%"+params+"%")).all()
+    else:
+        _uid = db.session.query(Users).filter(Users.user==_user).first()
+        if _uid != None:
+            return db.session.query(table_class).filter(
+                table_class.name.like("%"+params+"%"),
+                table_class.uid==_uid.object_id).all()
+                # table_class.uid==_uid.user).all()
+        else:
+            return []
 
 
 def safe_check(value):
@@ -311,6 +334,13 @@ def get_query_data(request, key, default=None, throwable=False):
         return value
     if not throwable:
         return default
+
+
+def get_name(table_class, object_id):
+    try:
+        return get_model(table_class, object_id)
+    except BaseException:
+        return get_model(table_class, object_id)
 
 
 def get_model(table_class, object_id):
@@ -415,6 +445,17 @@ def get_per_page_value(request, default, max_value):
     if per_page > max_value or per_page <= 0:
         return max_value
     return per_page
+
+
+def params_filter(table_class, _name=None, _uid=None):
+    if _name != None and _uid != None:
+        return [table_class.state == table_class.STATE_NORMAL, table_class.name.like("%"+_name+"%"), table_class.like("%"+_uid+"%")]
+    elif  _name == None and _uid != None:
+        return [table_class.state == table_class.STATE_NORMAL, table_class.uid.like("%"+_uid+"%")]
+    elif  _uid == None and _name != None:
+        return [table_class.state == table_class.STATE_NORMAL, table_class.name.like("%"+_name+"%")]
+    else:
+        return [table_class.state == table_class.STATE_NORMAL]
 
 
 def get_models_filter_with_pagination(table_class, order_name, page, per_page, order_func, *params):

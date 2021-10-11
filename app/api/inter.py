@@ -1,5 +1,3 @@
-from sqlalchemy import desc
-from settings import Config
 from flask import jsonify, Blueprint, request
 from app.common.decorator import jwt_role
 from app.models import *
@@ -30,8 +28,9 @@ def add_inter():
         option_items = get_post_items(request, Interfaces.OPTIONAL_ITEMS)
         _model = get_models_filter(Interfaces, Interfaces.name == require_items["name"])
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
         if _model != []:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
         inter_model = create_model(Interfaces, **require_items)
         return jsonify({'status': 'ok', 'object_id':inter_model.object_id})
     except BaseException as e:
@@ -84,6 +83,7 @@ def put_inter(object_id):
 
         update_models(_model)
         return {
+            'status': 'ok',
             "object_id": object_id,
         }
     except BaseException as e:
@@ -101,7 +101,10 @@ def delete_inter(object_id):
         if _model is None:
             return jsonify({'status': 'failed', 'data': '删除不存在的对象'})
         delete_model(Interfaces, object_id)
-        return {}
+        return {
+            "status": "ok",
+            "object_id": object_id,
+        }
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '删除错误%s' % e})
 
@@ -114,22 +117,7 @@ def checkcase(object_id):
     {}
     """
     try:
-        page = get_page_value(request)
-        per_page = get_per_page_value(request, Config.PER_PAGE, Config.MAX_PER_PAGE)
-        paging = get_query_data(request, "paging", 1)
-        filter_params = [TestCase.state == TestCase.STATE_NORMAL, TestCase.Iid == object_id]
-        if bool(int(paging)):
-            pagination = get_models_filter_with_pagination(TestCase, "", page, per_page, desc, *filter_params)
-
-            total = pagination['total']
-            models = pagination['models']
-            data = [model.get_json() for model in models]
-            return {
-                'total': total,
-                'page': page,
-                'pages': get_pages(total, per_page),
-                'per_page': per_page,
-                'results': data
-            }
+        tables = [TestCase.state == TestCase.STATE_NORMAL, TestCase.Iid == object_id]
+        return jsonify(Pages(request, TestCase, tables))
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '获取错误 %s' % e})

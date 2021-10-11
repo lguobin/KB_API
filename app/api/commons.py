@@ -5,50 +5,55 @@ from app.models import *
 from app.common.helper import *
 from app.common.decorator import jwt_role
 from app.common.globalParams import _Cache
-from flask import render_template, jsonify, Blueprint, request, Response, stream_with_context, send_file
+from flask import render_template, jsonify, Blueprint, request, Response, stream_with_context, send_file, g
 
 
 
 common = Blueprint("common", __name__)
 
 
-
-@common.route('/', methods=['GET'])
-@common.route('s', methods=['GET'])
-def doc_API():
-    # print("API 说明文档")
-    return render_template("apis.html")
-
-
 @common.route('/<function>', methods=['GET'])
 @jwt_role()
 def GetPages(function=None):
+    # lsit?q=xxx&u=xxx
+    search_data = request.args
     try:
+        q = search_data.get("q")
+        u = search_data.get("u")
         if function == "email":
-            return jsonify(Pages(request, Email))
+            return jsonify(Pages(request, Email, params_filter(Email, q, u)))
+
         elif function == "env":
-            return jsonify(Pages(request, EnvConfig))
+            return jsonify(Pages(request, EnvConfig, params_filter(EnvConfig, q, u)))
+
         elif function == "project":
-            return jsonify(Pages(request, Project))
+            return jsonify(Pages(request, Project, params_filter(Project, q, u)))
+
         elif function == "inters":
-            return jsonify(Pages(request, Interfaces))
+            return jsonify(Pages(request, Interfaces, params_filter(Interfaces, q, u)))
+
         elif function == "tcase":
-            return jsonify(Pages(request, TestCase))
+            return jsonify(Pages(request, TestCase, params_filter(TestCase, q, u)))
+
         elif function == "report":
-            return jsonify(Pages(request, TestReport))
+            return jsonify(Pages(request, TestReport, params_filter(TestReport, q, u)))
+
         elif function == "cronjob":
-            return jsonify(Pages(request, CronJob))
+            return jsonify(Pages(request, CronJob, params_filter(CronJob, q, u)))
+
         elif function == "scene":
-            return jsonify(Pages(request, Scenes))
+            return jsonify(Pages(request, Scenes, params_filter(Scenes, q, u)))
+
         else:
             return jsonify({
                     'status': 'failed',
-                    'msg': '请求分页出错或不存在',
+                    'data': '请求分页出错或不存在',
                 })
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '获取分页数据出错误 %s' %e})
 
 
+# 全局搜索
 @common.route('/search', methods=['GET'])
 @jwt_role()
 def searchData():
@@ -98,7 +103,7 @@ def searchData():
 @common.route('/searchreport', methods=['GET'])
 @jwt_role()
 def search_report():
-    return_NULL = {"report": [], "status": "ok"}
+    return_NULL = {"status": "failed", "report": [], "status": "ok"}
     try:
         search_data = request.args
         if search_data.get("Project") != None and search_data.get("Project") != "":
@@ -145,10 +150,11 @@ def getparams(env_object_id):
         if _model != None:
             return jsonify({
                     "status": "ok",
-                    "globalParams": _Cache(**_model.redis).get_GlobalParams(),
+                    "globalParams": _Cache(**_model.redis).get_GlobalParamsList(),
+                    # "globalParams": _Cache(**_model.redis).get_GlobalParams(),
                 })
         else:
-            return jsonify({"msg": "该环境变量未启用 Redis 设置, 也就没有全局变量"})
+            return jsonify({"data": "该环境变量未启用 Redis 设置, 也就没有全局变量"})
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '获取错误 %s' % e})
 
@@ -166,12 +172,12 @@ def addparams(env_object_id):
             if params_name != None and uid != None:
                 # _name = "手动添加_%s_%s_%s" %(params_name, uid, str(timestamp()))
                 _name = "手动添加_%s_%s" %(params_name, uid)
-                _Cache(**_model.redis).save_GlobalParams(_name, {params_name:params_val})
+                _Cache(**_model.redis).save_GlobalParams(_name, {params_name:params_val}, uid)
                 return jsonify({"status": "ok", "data": "添加完成"})
             else:
                 return jsonify({"status": "failed", "data": "参数错误，缺少必要参数"})
         else:
-            return jsonify({"msg": "该环境变量未启用 Redis 设置, 也就没有全局变量"})
+            return jsonify({"data": "该环境变量未启用 Redis 设置, 也就没有全局变量"})
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '添加错误 %s' % e})
 
@@ -210,14 +216,106 @@ def export_csvDemo():
 
 
 @common.route('/<pid>/inputTestCases', methods=['POST'])
-@jwt_role()
+# @jwt_role()
 def input_test_cases(pid):
     try:
         file = request.files.get("files")
-        stream = StringIO(file.stream.read().decode(), newline=None)
+        stream = StringIO(file.stream.read().decode("gbk"), newline=None)
         file_content = csv.reader(stream)
         for row in  islice(file_content, 1, None):
             input_files(pid, *row)
-        return jsonify({"msg": "导入成功"})
+        return jsonify({"status": "ok", "data": "导入成功"})
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '导入失败，原因: %s' %e})
+
+
+@common.route('/uploads', methods=['POST', 'GET'])
+# @jwt_role()
+def upload():
+    import os
+    import time
+    import traceback
+    from settings import Config
+    from werkzeug.utils import secure_filename
+    if request.method == 'POST':
+        # require_items = get_post_items(request, TestCase.REQUIRE_ITEMS, throwable=True)
+        # option_items = get_post_items(request, TestCase.OPTIONAL_ITEMS)
+        # require_items.update(option_items)
+        # require_items.update({"uid": g.user_object_id})
+
+        # if type(require_items["headers"]) == list:
+        #     require_items["headers"] = str(require_items["headers"])[1:-1]
+
+        # if type(require_items["requestBody"]) == list:
+        #     require_items["requestBody"] = str(require_items["requestBody"])[1:-1]
+
+
+        # _model = get_models_filter(TestCase, TestCase.name == require_items["name"])
+        # if _model != []:
+        #     return jsonify({'status': 'failed', 'data': '名字已存在'})
+
+        # if require_items["parameterType"] == "file":
+        #     require_items["requestBody"] = test
+
+
+        f = request.files['files']
+        # 检查文件是否存在
+        if 'files' not in request.files:
+            return "文件不存在"
+        for f in request.files.getlist('files'):
+            # 注意：没有的文件夹一定要先创建，不然会提示没有该路径
+            upload_path = os.path.join(Config.UPLOAD_PATH, Config.UPLOAD_FOLDER, secure_filename(f.filename))
+            f.save(upload_path)
+
+        # case_model = create_model(TestCase, **require_items)
+        return jsonify({'status': 'ok', 'data':'上传成功'})
+    elif request.method == 'GET':
+        try:
+            # path = Config.UPLOAD_FOLDER
+            path = os.path.join(Config.UPLOAD_PATH, Config.UPLOAD_FOLDER)
+            Files = sorted(os.listdir(path))
+            dir_=[]
+            file_=[]
+            fileQuantity = len(Files)
+            for i in Files:
+                try:
+                    i=os.path.join(path, i)
+                    if not os.path.isdir(i):
+                        if os.path.islink(i):
+                            fileLinkPath = os.readlink(i)
+                            file_.append({
+                                'filePathName':i,
+                                'fileSize':('%.2f' % (os.stat(i).st_size/1024))+'k',
+                                'fileName':os.path.split(i)[1] +'-->'+ fileLinkPath,
+                                'fileUploadtime':time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.stat(i).st_mtime)),
+                                'fileType':'file'
+                                })
+                        else:
+                            file_.append({
+                                'filePathName':i,
+                                'fileSize':('%.2f' % (os.path.getsize(i)/1024))+'k',
+                                'fileName':os.path.split(i)[1],
+                                'fileUploadtime':time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.stat(i).st_mtime)),
+                                'fileType':'file'
+                                })
+                    else:
+                        dir_.append({
+                            'filePathName':i,
+                            'fileName':os.path.split(i)[1],
+                            'fileSize':('%.2f' % (os.path.getsize(i)/1024 ))+'k',
+                            'fileUploadtime':time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(os.stat(i).st_mtime)),
+                            'fileType':'dir'
+                            })
+                except:
+                    continue
+            returnJson = {
+                'filesPath':str(path.encode(), encoding="utf-8"),
+                'fileTotal':fileQuantity,
+                'files': dir_ + file_
+            }
+        except Exception:
+            return jsonify({'status': 'ok', 'data':str(traceback.format_exc())})
+        else:
+            return jsonify({'status': 'ok', 'data':returnJson})
+    else:
+        return jsonify({'status': 'ok', 'data': '没有任何操作内容'})

@@ -1,6 +1,6 @@
 from .base import _BaseModel
 from app.extensions import db
-
+from app.models.tools import get_username
 
 class EnvConfig(_BaseModel):
     __tablename__ = "EnvConfig"
@@ -29,6 +29,8 @@ class EnvConfig(_BaseModel):
             "mysql": self.mysql,
             "create_at": self.created_at,
             "updated_at": self.updated_at,
+            "uid": self.uid,
+            "uid_name": get_username("UID", self.uid),
             "description": self.description
         }
 

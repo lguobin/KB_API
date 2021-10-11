@@ -1,6 +1,7 @@
 from flask import jsonify, Blueprint, request
 from app.common.decorator import jwt_role
 from app.models import *
+from app.models.base import timestamp
 from app.extensions import cron_manager
 from app.common.helper import *
 from app.common.helper import get_post_items
@@ -98,31 +99,30 @@ def addcron():
         require_items = get_post_items(request, CronJob.REQUIRE_ITEMS, throwable=True)
         option_items = get_post_items(request, CronJob.OPTIONAL_ITEMS)
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
         mission_name = get_models_filter(CronJob, CronJob.mission_name == require_items["mission_name"])
 
         if mission_name != []:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
 
         temp = require_items.get("alarmMailGroupList")
         require_items["alarmMailGroupList"] = str(temp)
 
         times = Run_Times(**require_items)
         if times == True:
-            pass
+            _model = create_model(CronJob, **require_items)
+            cron_manager.add_cron(
+                **{
+                    "mission_name": require_items.get("mission_name"),
+                    "mode": require_items.get("triggerType"),
+                    "seconds": require_items.get("interval"),
+                    "run_Date": require_items.get("runDate"),
+                    "task_Job": require_items,
+                    "object_id": _model.object_id,
+                })
+            return jsonify({'status': 'ok', 'object_id': _model.object_id})
         else:
             return jsonify(times)
-
-        _model = create_model(CronJob, **require_items)
-        cron_manager.add_cron(
-            **{
-                "mission_name": require_items.get("mission_name"),
-                "mode": require_items.get("triggerType"),
-                "seconds": require_items.get("interval"),
-                "run_Date": require_items.get("runDate"),
-                "task_Job": require_items,
-                "object_id": _model.object_id,
-            })
-        return jsonify({'status': 'ok', 'object_id': _model.object_id})
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '新建失败 %s' % e})
 
@@ -158,36 +158,34 @@ def putcron(object_id):
 
         times = Run_Times(**request.get_json(force=True))
         if times == True:
-            pass
+            _model.mission_name = mission_name
+            _model.uid = uid
+            _model.pid = pid
+            _model.EnvId = EnvId
+            _model.SuiteIdList = SuiteIdList
+
+            _model.triggerType = triggerType
+            _model.runDate = runDate
+            _model.interval = interval
+
+            require_items = {
+                "EnvId": EnvId,
+                "ProjectId": pid,
+                "Interface": SuiteIdList,
+            }
+            cron_manager.add_cron(
+                **{
+                    "mission_name": mission_name,
+                    "mode": triggerType,
+                    "seconds": interval,
+                    "run_Date": runDate,
+                    "object_id": _model.object_id,
+                    "task_Job": require_items,
+                })
+            update_models(_model)
+            return {'status': 'ok', "object_id": object_id, 'data': '调度器修改成功'}
         else:
             return jsonify(times)
-
-        _model.mission_name = mission_name
-        _model.uid = uid
-        _model.pid = pid
-        _model.EnvId = EnvId
-        _model.SuiteIdList = SuiteIdList
-
-        _model.triggerType = triggerType
-        _model.runDate = runDate
-        _model.interval = interval
-
-        require_items = {
-            "EnvId": EnvId,
-            "ProjectId": pid,
-            "Interface": SuiteIdList,
-        }
-        cron_manager.add_cron(
-            **{
-                "mission_name": mission_name,
-                "mode": triggerType,
-                "seconds": interval,
-                "run_Date": runDate,
-                "object_id": _model.object_id,
-                "task_Job": require_items,
-            })
-        update_models(_model)
-        return {'status': 'ok', "object_id": object_id, 'data': '调度器修改成功'}
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '修改错误%s' % e})
 
@@ -203,8 +201,13 @@ def delcron(object_id):
         if _model is None:
             return jsonify({'status': 'failed', 'data': '删除不存在的对象'})
         cron_manager.del_cron(cron_id=_model.mission_name)
+        _model.job_status = 1
+        update_models(_model)
         delete_model(CronJob, object_id)
-        return {}
+        return {
+            "status": "ok",
+            "object_id": object_id,
+        }
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '删除错误%s' % e})
 
@@ -215,21 +218,21 @@ def delcron(object_id):
 @jwt_role()
 def nodifycron(object_id):
     """
-    {"nodify": 0}
+    {"job_status": 0}
     """
     try:
         _model = get_model_by(CronJob, object_id=object_id)
         if _model is None:
             return jsonify({'status': 'failed', 'data': '对象不存在'})
-        nodify = get_post_data(request, "nodify", throwable=True)
+        job_status = get_post_data(request, "job_status", throwable=True)
 
-        if type(nodify) == int and nodify == 0:
-            _model.state = 0
+        if type(job_status) == int and job_status == 0:
+            _model.job_status = 0
             update_models(_model)
             msg = "恢复任务"
             cron_manager.resume_cron(cron_id=_model.mission_name)
-        elif type(nodify) == int and nodify == 1:
-            _model.state = 1
+        elif type(job_status) == int and job_status == 1:
+            _model.job_status = 1
             update_models(_model)
             msg = "暂停任务"
             cron_manager.pause_cron(cron_id=_model.mission_name)
@@ -237,10 +240,11 @@ def nodifycron(object_id):
             return jsonify({'status': 'failed', 'data': '无法修改定时任务状态, [nodify参数：0 开启 | 1 关闭]'})
 
         return jsonify({
+            "status": "ok",
             "object_id": _model.object_id,
             "mission_name": _model.mission_name,
-            "job_status": _model.state,
-            "msg": msg,
+            "job_status": _model.job_status,
+            "data": msg,
         })
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '删除错误%s' % e})

@@ -1,6 +1,6 @@
 from .base import _BaseModel
 from app.extensions import db
-
+from app.models.tools import get_username
 
 # {"a":[{"接口A":[1,2,3,4,5]},{"接口B":[1,2,3,4,5]}]}
 class Scenes(_BaseModel):
@@ -32,6 +32,7 @@ class Scenes(_BaseModel):
             "updated_at": self.updated_at,
             "name": self.name,
             "uid": self.uid,
+            "uid_name": get_username("UID", self.uid),
             "TCase_ids": self.TCase_ids,
             "run_state": self.run_state,
             "description": self.description,

@@ -25,9 +25,10 @@ def addemail():
         require_items = get_post_items(request, Email.REQUIRE_ITEMS, throwable=True)
         option_items = get_post_items(request, Email.OPTIONAL_ITEMS)
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
         _model = get_models_filter(Email, Email.name == require_items["name"])
         if _model != []:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
         _model = create_model(Email, **require_items)
         return jsonify({'status': 'ok', 'object_id':_model.object_id})
     except BaseException as e:
@@ -52,7 +53,7 @@ def putemail(object_id):
 
         _temp = get_models_filter(Email, Email.name == name)
         if len(_temp) > 1:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
 
         _model.name = name
         _model.uid = uid
@@ -76,7 +77,10 @@ def delemail(object_id):
         if _model is None:
             return jsonify({'status': 'failed', 'data': '删除不存在的对象'})
         delete_model(Email, object_id)
-        return { "object_id": object_id}
+        return {
+            "status": "ok",
+            "object_id": object_id,
+        }
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '删除错误%s' % e})
 

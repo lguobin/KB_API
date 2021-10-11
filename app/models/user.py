@@ -58,6 +58,8 @@ class Users(_BaseModel):
             'login_at': self.login_at,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
+            'role_id': self.role_id,
+            'confirm': self.confirm,
             'state': self.state
         }
 

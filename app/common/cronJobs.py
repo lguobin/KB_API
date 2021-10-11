@@ -1,8 +1,8 @@
 import time
-from settings import Platform_name
+from settings import Platform_name, Platform_HOST
 from app.common.notify import send_email, send_wxwork_notify
 from app.common.utils import str_list
-from app.common.errors import DBError
+from app.common.message import DBError
 
 
 # Do something
@@ -79,7 +79,7 @@ def Test_missions(items):
                         _report.totalCount,
                         _report.passCount,
                         PassRate,
-                        "127.0.0.1:80",
+                        Platform_HOST,
                         _report.object_id,
                         _report.object_id,
                         time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())),
@@ -107,7 +107,7 @@ API Test TaskJob executed successfully!
 通过总数：   {}
 通过比例：   {}
 测试报告 ID：{}
-有关详细信息:{}
+有关详细信息:http://{}/testReport/{}
                 '''.format(
                     CronJob_object_id,
                     content_result,
@@ -115,7 +115,7 @@ API Test TaskJob executed successfully!
                     _report.passCount,
                     '{:.2%}'.format(_report.passCount / _report.totalCount),
                     _report.object_id,
-                    "0.0.0.0",
+                    Platform_HOST, _report.object_id,
                 )
                 send_wxwork_notify(content_text)
 

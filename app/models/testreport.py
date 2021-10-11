@@ -9,6 +9,7 @@
 
 from .base import _BaseModel
 from app.extensions import db
+from app.models.tools import get_username
 
 
 class TestReport(_BaseModel):
@@ -44,11 +45,13 @@ class TestReport(_BaseModel):
         return {
             "report_object_id": self.object_id,
             "uid": self.uid,
+            "Project_id": self.Project_id,
+            "uid_name": get_username("UID", self.uid),
+            "Project_id_name": get_username("PID", self.Project_id),
             "EnvId":self.EnvId,
             "EnvName":self.EnvName,
-            "executionMode ":self.executionMode ,
+            "executionMode":self.executionMode ,
             "cronJobId":self.cronJobId,
-            "Project_id":self.Project_id,
             "StartTime":self.StartTime,
 
             # "interfaces_Suites_CaseDetail":self.interfaces_Suites_CaseDetail,

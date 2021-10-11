@@ -29,12 +29,13 @@ def register():
                                        throwable=True)
         option_items = get_post_items(request, Users.OPTIONAL_ITEMS)
         require_items.update(option_items)
+        require_items.update({"uid": g.user_object_id})
         require_items["nickname"] = require_items.get("user")
         require_items["role_id"] = 0
 
         _temp = get_model_by(Users, user=require_items.get("user"))
         if _temp != None:
-            return jsonify({'status': 'failed', 'msg': '名字已存在'})
+            return jsonify({'status': 'failed', 'data': '名字已存在'})
 
         if require_items.get("password") and len(require_items.get("password")) <= 6:
             return jsonify({'status': 'failed', 'data': '密码长度至少要 6 位数以上'})
@@ -59,7 +60,45 @@ def register():
 @_user.route('/activate/<token>', methods=['GET'])
 def activate(token):
     print(1111111111111111111111111)
-    return jsonify(data="激活成功 请登录")
+    return jsonify(status="ok", data="激活成功 请登录")
+
+
+@_user.route('/login', methods=['GET', 'POST'])
+def login():
+    loginjson = request.get_json(force=True)
+    if loginjson == None or loginjson == {}:
+        return jsonify(data="未找到可用参数")
+    user = loginjson.get("user")
+    password = loginjson.get("password")
+
+    print("登录信息 ：", user, password)
+
+    if user != None and password != None:
+        if len(user) == 0 or len(password) == 0:
+            return jsonify(data='请输入正确的用户名或密码')
+
+        _userInfo = Users.query.filter(Users.user == user).first()  # Manager仅作为示例
+        if not _userInfo:
+            return jsonify(status='failed', data='未找到用户')
+
+        if _userInfo.confirm == False and _userInfo.role_id == None:
+            return jsonify(status='failed', data='用户未激活或已禁用')
+
+        if not check_password_hash(_userInfo._password, password):
+            return jsonify(status='failed', data='密码错误')
+
+        token = jwt_encode({
+            'object_id':  _userInfo.object_id,
+            'name': _userInfo.user,
+            'role': _userInfo.role_id
+        })
+
+        _userInfo.token = str(token)
+        _userInfo.login_at = int(time.time())
+        update_models(_userInfo)
+        return jsonify({'status':'ok', 'access_token': token, 'user_object_id': _userInfo.object_id})
+    else:
+        return jsonify(status='failed', data="请填写用户名或密码")
 
 
 # 获取用户信息
@@ -108,6 +147,7 @@ def modify(object_id):
                 _model.email = email
             update_models(_model)
             return {
+                'status': 'ok',
                 "object_id": object_id,
             }
         else:
@@ -115,44 +155,6 @@ def modify(object_id):
 
     except BaseException as e:
         return jsonify({'status': 'failed', 'data': '获取错误 %s' % e})
-
-
-@_user.route('/login', methods=['GET', 'POST'])
-def login():
-    loginjson = request.get_json(force=True)
-    if loginjson == None or loginjson == {}:
-        return jsonify(msg="未找到可用参数")
-    user = loginjson.get("user")
-    password = loginjson.get("password")
-
-    print("登录信息 ：", user, password)
-
-    if user != None and password != None:
-        if len(user) == 0 or len(password) == 0:
-            return jsonify(msg='请输入正确的用户名或密码')
-
-        _userInfo = Users.query.filter(Users.user == user).first()  # Manager仅作为示例
-        if not _userInfo:
-            return jsonify(code='2100', msg='未找到用户')
-
-        if _userInfo.confirm == False and _userInfo.role_id == None:
-            return jsonify(code='2100', msg='用户未激活或已禁用')
-
-        if not check_password_hash(_userInfo._password, password):
-            return jsonify(code='2100', msg='密码错误')
-
-        token = jwt_encode({
-            'object_id':  _userInfo.object_id,
-            'name': _userInfo.user,
-            'role': _userInfo.role_id
-        })
-
-        _userInfo.token = str(token)
-        _userInfo.login_at = int(time.time())
-        update_models(_userInfo)
-        return jsonify({'status':'ok', 'access_token': token})
-    else:
-        return jsonify(code='2100', msg="请填写用户名或密码")
 
 
 @_user.route('/token/update', methods=['POST'])
@@ -173,7 +175,7 @@ def update_token():
         })
         return jsonify({'status':'ok', "token_Up": token})
     else:
-        return jsonify(code='2100', msg='用户不存在或已停用')
+        return jsonify(status='failed', data='用户不存在或已停用')
 
 
 @_user.route('/logout', methods=['GET'])
@@ -182,7 +184,7 @@ def logout():
     return jsonify({'status':'ok', 'access_token': "没有主动注销的说法, 以后再加入 redis"})
 
 
-@_user.route('list', methods=['GET','PUT'])
+@_user.route('/list', methods=['GET','PUT'])
 @jwt_role("admin")
 def User_Management():
     try:
@@ -198,6 +200,7 @@ def User_Management():
                 models = pagination['models']
                 data = [model.get_json() for model in models]
                 return {
+                    'status': 'ok',
                     'total': total,
                     'page': page,
                     'pages': get_pages(total, per_page),
@@ -208,7 +211,7 @@ def User_Management():
         elif _request.get("Option") == "adduser" and _request.get("adduser") != None:
             _adduser = _request.get("adduser")
             _model = create_model(Users, **_adduser)
-            return {"object_id": _model.object_id}
+            return {"status": "ok", "object_id": _model.object_id}
 
 
         elif _request.get("object_id") != None:
@@ -235,6 +238,7 @@ def User_Management():
                 _model.role_id = role_id
                 update_models(_model)
                 return {
+                    "status": "ok",
                     "object_id": __object,
                 }
 
@@ -242,7 +246,7 @@ def User_Management():
                 _model.state = 1
                 _model.confirm = False
                 update_models(_model)
-                return jsonify({'status': 'ok', 'data': '用户已被清理'})
+                return jsonify({'status': 'ok', 'data': '用户已被禁用'})
 
             elif _request.get("Option") == "reset_password":
                 _model.password = Config.RESET_Password

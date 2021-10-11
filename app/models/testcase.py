@@ -8,7 +8,7 @@
 
 from .base import _BaseModel
 from app.extensions import db
-
+from app.models.tools import get_username
 
 class TestCase(_BaseModel):
     __tablename__ = "TestCase"
@@ -58,7 +58,8 @@ class TestCase(_BaseModel):
     description = db.Column('description', db.String(256), nullable=True)
 
     parameterType = db.Column('parameterType', db.String(256), nullable=False)
-    filePath = db.Column('filePath', db.String(256), nullable=True)
+    filePath = db.Column('filePath', db.JSON, nullable=True)
+    # filePath = db.Column('filePath', db.String(256), nullable=True)
 
 
     def get_json(self):
@@ -67,6 +68,10 @@ class TestCase(_BaseModel):
             "uid": self.uid,
             "pid": self.pid,
             "Iid": self.Iid,
+            "uid_name": get_username("UID", self.uid),
+            "pid_name": get_username("PID", self.pid),
+            "Iid_name": get_username("IID", self.Iid),
+
             "testcase_name": self.name,
             "headers": self.headers,
             "requestMethod": self.requestMethod,

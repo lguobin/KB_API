@@ -1,6 +1,6 @@
 from .base import _BaseModel
 from app.extensions import db
-
+from app.models.tools import get_username
 
 class Email(_BaseModel):
     __tablename__ = "Email"
@@ -29,6 +29,7 @@ class Email(_BaseModel):
         return {
             "object_id": self.object_id,
             "uid": self.uid,
+            "uid_name": get_username("UID", self.uid),
             "name": self.name,
             "email": self.email,
             "mailGroup": self.mailGroup,

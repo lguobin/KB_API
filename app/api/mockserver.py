@@ -62,7 +62,7 @@ def mock_call(path):
         else:
             return make_response(jsonify({
                 'status': 'failed',
-                'msg': 'TryMock不存在'
+                'data': 'TryMock不存在'
             }), 404)
     except BaseException as e:
-        return make_response(jsonify({"error": str(e)}), 500)
+        return make_response(jsonify({'status': 'failed',"error": str(e)}), 500)

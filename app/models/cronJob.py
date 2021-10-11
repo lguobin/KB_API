@@ -1,6 +1,7 @@
 
 from .base import _BaseModel
 from app.extensions import db
+from app.models.tools import get_username
 
 
 class CronJob(_BaseModel):
@@ -17,7 +18,7 @@ class CronJob(_BaseModel):
                     "interval", "runDate",
                     "lastUpdateTime", "description",
                     "alwaysSendMail", "alarmMailGroupList",
-                    "alwaysWXWorkNotify",
+                    "alwaysWXWorkNotify", "job_status"
                     ]
 
     # 任务
@@ -36,19 +37,30 @@ class CronJob(_BaseModel):
     alarmMailGroupList = db.Column('alarmMailGroupList', db.String(4096), nullable=True)
     alwaysWXWorkNotify = db.Column('alwaysWXWorkNotify', db.SmallInteger, nullable=True, default=False)
     description = db.Column('description', db.String(256), nullable=True)
+    job_status = db.Column('job_status', db.SmallInteger, nullable=True, default=0)
 
     def get_json(self):
+        _alarmMailGroupList = self.alarmMailGroupList.replace("'", "").strip('[').strip(']')
+        _alarmMailGroupList = _alarmMailGroupList.split(', ')
+
         return {
             "mission_name": self.mission_name,
             "interval":self.interval,
             "runDate":self.runDate,
+            "job_status":self.job_status,
 
             "object_id": self.object_id,
             "uid": self.uid,
-            "pid":self.pid,
+            "pid": self.pid,
+            "SuiteIdList": self.SuiteIdList,
+
+            "uid_name": get_username("UID", self.uid),
+            "pid_name": get_username("PID", self.pid),
+            "SuiteIdList_name": get_username("IID", self.SuiteIdList),
+
             "EnvId":self.EnvId,
-            "SuiteIdList":self.SuiteIdList,
-            "alarmMailGroupList":self.alarmMailGroupList,
+            "EnvId_name": get_username("ENV", self.EnvId),
+            "alarmMailGroupList": _alarmMailGroupList,
             "alwaysSendMail":self.alwaysSendMail,
             "alwaysWXWorkNotify":self.alwaysWXWorkNotify,
             "lastUpdateTime":self.lastUpdateTime,

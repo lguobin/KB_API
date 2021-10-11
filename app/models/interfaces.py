@@ -9,6 +9,7 @@
 
 from .base import _BaseModel
 from app.extensions import db
+from app.models.tools import get_username
 
 
 class Interfaces(_BaseModel):
@@ -35,7 +36,10 @@ class Interfaces(_BaseModel):
             "object_id": self.object_id,
             "pid": self.pid,
             "uid": self.uid,
+            "pid_name": get_username("PID", self.pid),
+            "uid_name": get_username("UID", self.uid),
             "name": self.name,
+            "i_type": self.i_type,
             "headers": self.headers,
             "requestMethod": self.requestMethod,
             "route": self.route,
