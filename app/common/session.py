@@ -132,23 +132,22 @@ def execute_single_case_test(max_retries=5, **params):
         adapters = requests.adapters.HTTPAdapter(max_retries=max_retries)
         session.mount("https://", adapters)
         session.mount("http://", adapters)
-
-    # 每次执行必须清理缓存
     session.cookies.clear()
-
     returned_data = {
         "Conclusion": [],
         "status": None,
     }
-
     if params is not None and len(params) > 0:
-        # 处理请求体与请求头
-
-        # 前端说废弃
         # returned_data["Project_id"] = params["Project_id"]
         returned_data["Interface_id"] = params["Interface_id"]
         returned_data["testcase_name"] = params["name"]
         returned_data["object_id"] = params["object_id"]
+
+        # 把断言数据穿透到报告中
+        returned_data["checkoptions"] = params["checkoptions"]
+        returned_data["checkSpendSeconds"] = params["checkSpendSeconds"]
+        returned_data["checkResponseCode"] = params["checkResponseCode"]
+        returned_data["checkResponseBody"] = params["checkResponseBody"]
 
         # 调整初始化参数
         params["parameterType"] = params["parameterType"].lower()
@@ -158,21 +157,26 @@ def execute_single_case_test(max_retries=5, **params):
         check_spend_seconds = None
         check_response_body = None
         # check_response_number = None
-        check_connect_mysql = None
-        check_connect_redis = None
 
-        request_url = params["route"]
+        check_connect_redis = None
         if params["redis"] != None:
             try:
                 global_vars = _Cache(**params["redis"]).get_GlobalParams()
             except BaseException as e:
                 global_vars = {}
-                check_connect_mysql = False
                 check_connect_redis = False
                 print("由于连接方在一段时间后没有正确答复或连接的主机没有反应，连接尝试失败!")
         else:
             global_vars = {}
 
+        check_connect_mysql = None
+        if params["mysql"] != None:
+            check_connect_mysql = False
+            print("暂没做 Mysql 连接校验")
+        else:
+            pass
+
+        request_url = params["route"]
         if params["Method"].lower() == 'get' and params['Body'] != None:
             request_url += "?"
             for key, value in ast.literal_eval(params['Body']).items():
