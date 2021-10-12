@@ -732,16 +732,16 @@ URL地址：/<String:pid>/inputTestCases
 请求方式：POST
 | 字段 | 类型 | 描述 |
 |:-------------:|:-------------|
-| pid | String | 项目object_ID(仅用于拼接URL，Body不需要传参) |
-| uid | String | 用户object_ID(必填) |
-| files | Files | 文件流，就是下载的csv文件(必填) |
+| pid | String | 项目object_ID（仅用于拼接URL，Body不需要传参） |
+| uid | String | 用户object_ID（必填） |
+| files | Files | 文件流，就是下载的csv文件（必填） |
 Success-Response:
-​```json
+```json
 {
     "status": "ok",
     "data": "导入成功"
 }
-​```
+```
 Error-Response:
 ```json
 {
@@ -770,6 +770,26 @@ Success-Response:
 ```
 Error-Response:
 ​```json
+{
+    "status": "failed",
+    "data": "message"
+}
+```
+---
+### 获取用例详情
+URL地址：/tcase/<Sting:object_id>
+* 需要传入用例的 object_id
+请求方式：GET
+---
+Success-Response:
+```json
+{
+    "status": "ok",
+    "data": "【展示用例详情信息，所有字段与 POST 请求的参数一致，不再叙述】"
+}
+```
+Error-Response:
+```json
 {
     "status": "failed",
     "data": "message"
@@ -1004,7 +1024,7 @@ Error-Response:
 ```
 ---
 ### 获取测试用例结果
-URL地址：/DebugLastResult/<string:object_id>
+URL地址：/DebugLastResult/<string:object_id（测试用例的_ID）>
 请求方式：GET
 Success-Response:
 ```json

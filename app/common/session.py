@@ -4,15 +4,10 @@ import ssl
 import json
 import time
 import requests
-from settings import basedir
 from app.common.utils import *
 from app.common.globalParams import _Cache
 from app.common.decorator import async_test
-from requests.cookies import RequestsCookieJar
 from app.common.helper import single_Save_response, save_TestReport
-
-# from app.common.globalParams import get_GlobalParams, save_GlobalParams
-
 
 
 resp_status = {
@@ -112,7 +107,6 @@ def send_and_save_report_BySuite(test_list, action={}):
     else:
         _err_msg = "因为找不到项目或接口下的用例，无法执行测试"
         result_report = {'status': 'failed', 'data': _err_msg}
-        print(result_report)
         return result_report
     return True
 
@@ -156,12 +150,14 @@ def execute_single_case_test(max_retries=5, **params):
         returned_data["testcase_name"] = params["name"]
         returned_data["object_id"] = params["object_id"]
 
+        # 调整初始化参数
+        params["parameterType"] = params["parameterType"].lower()
+
         response_json = dict()
         check_response_code = None
         check_spend_seconds = None
         check_response_body = None
-        check_response_number = None
-
+        # check_response_number = None
         check_connect_mysql = None
         check_connect_redis = None
 
@@ -193,6 +189,7 @@ def execute_single_case_test(max_retries=5, **params):
 
 
         elif params['parameterType'] == "json" and params['Body'] != None:
+        # if params['parameterType'] == "json" and params['Body'] != None:
             if params["Body"] != None or params["Body"] != "":
                 # 替换faker变量
                 request_body_str = resolve_faker_var(init_faker_var=params["Body"])
@@ -215,19 +212,17 @@ def execute_single_case_test(max_retries=5, **params):
                 request_body_str = resolve_int_var(init_int_str=request_body_str)
                 params["Body"] = ast.literal_eval(request_body_str)
 
-
-
         if type(params["Headers"]) == str and params["Headers"] != "":
             params["Headers"] = eval(params["Headers"])
         elif type(params["Headers"]) == list:
-            return False
+            params["Headers"] = eval(str(params["Headers"])[1:-1])
+            # return False
         else:
             params["Headers"] = {}
 
 
 
-
-        if "parameterType" in params and params["parameterType"] == "form":
+        if "parameterType" in params and params["parameterType"] == "form" or params["parameterType"] == "form-data":
             response = session.request(
                 url=params["route"],
                 method=params["Method"],
@@ -235,19 +230,18 @@ def execute_single_case_test(max_retries=5, **params):
                 headers=params["Headers"],
                 verify=False
                 )
-
         elif "parameterType" in params and params["parameterType"] == "file" or params["parameterType"] == "files":
-            # if "filePath" in params and params["filePath"]:
-            print("打印 - filePath  ---> ", params["filePath"])
-
             # 保证 Body 不能为 Null
+            # print("打印 - filePath  ---> ", params["filePath"])
             if params["Body"] == None or params["Body"] == "":
                 params["Body"] = {}
+            else:
+                params["Body"] = eval(params["Body"])
             try:
                 response = session.request(
                     url=params["route"],
                     method=params["Method"],
-                    data=eval(params["Body"]),
+                    data=params["Body"],
                     headers=params["Headers"],
                     files=Open_Upfiles(params["filePath"]),
                     verify=False
@@ -284,6 +278,7 @@ def execute_single_case_test(max_retries=5, **params):
 
         # ==========================================
         # 校验控制
+        # ==========================================
         if params["checkoptions"]:
             # checkSpendSeconds 校验处理
             if params["checkSpendSeconds"] != None and params["checkSpendSeconds"] > 0:
@@ -384,10 +379,9 @@ def execute_single_case_test(max_retries=5, **params):
                 "url": params["route"],
                 "requestMethod": params["Method"],
                 "requestBody": params["Body"],
-                "delaySeconds": "延时请求",
             }]
-
-        returned_data["dataInitResult"] = "数据初始化结果"
+        # returned_data["delaySeconds"] = "延时请求"
+        # returned_data["dataInitResult"] = "数据初始化结果"
     else:
         return None
     return returned_data
@@ -406,7 +400,6 @@ def Open_Upfiles(_file):
             Config.UPLOAD_PATH +"/"+ Config.UPLOAD_FOLDER +"/"+ file,'rb')))
         for _ in range(len(_file)):
             Open_list.append(files(_file[_].get("name"), _file[_].get("file"), _file[_].get("Content-Type")))
-        print(Open_list)
         return Open_list
     except BaseException as e:
         return None

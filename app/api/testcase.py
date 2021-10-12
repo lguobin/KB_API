@@ -71,8 +71,8 @@ def addcase():
         require_items.update(option_items)
         require_items.update({"uid": g.user_object_id})
 
-        if type(require_items["headers"]) == list:
-            require_items["headers"] = str(require_items["headers"])[1:-1]
+        # if type(require_items["headers"]) == list:
+        #     require_items["headers"] = str(require_items["headers"])[1:-1]
 
         if type(require_items["requestBody"]) == list:
             require_items["requestBody"] = str(require_items["requestBody"])[1:-1]
@@ -148,8 +148,8 @@ def putcase(object_id):
         filePath = get_post_data(request, "filePath", throwable=True)
 
 
-        if type(headers) == list:
-            headers = str(headers)[1:-1]
+        # if type(headers) == list:
+        #     headers = str(headers)[1:-1]
 
         if type(requestBody) == list:
             requestBody = str(requestBody)[1:-1]

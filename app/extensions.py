@@ -4,9 +4,6 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from app.common.cronManager import CronManager
 
-
-
-
 cron_manager = CronManager()
 cron_manager.start()
 cron_manager.monitor()

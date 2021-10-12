@@ -1,4 +1,5 @@
 import os
+import socket
 from datetime import timedelta
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -7,16 +8,26 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 # 所有环境配置的基类
 basedir = os.path.abspath(os.path.dirname(__file__))
 Platform_name = "【测试】定时任务结果报表"
+Platform_HOST = socket.gethostbyname(socket.gethostname())
 
 
 class Config:
     # 设置日志等级
+    DEBUG = True
     PER_PAGE = 20
     MAX_PER_PAGE = 20
-    DEBUG = True
     LOG_LEVEL = DEBUG
+    MAX_CONTENT_LENGTH = 128 * 1024 * 1024
+    UPLOAD_FOLDER = 'uploads'
+    UPLOAD_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     SECRET_KEY = '8~wl7K?MHiQNI23a4g<re}c*0B@"1vzu9EWkSZyCfT[b]oJt#>P(h:G^!psR5F6$'
 
+    # 连接池
+    SQLALCHEMY_POOL_SIZE = 10
+    # 自动回收数据库连接延迟
+    SQLALCHEMY_POOL_RECYCLE = 3600
+    # 连接数据库超时
+    SQLALCHEMY_POOL_TIMEOUT = 3
     # 动态追踪修改设置，如未设置只会提示警告
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # 查询时是否显示原始SQL语句
@@ -75,8 +86,6 @@ class Config:
 class TestingConfig(Config):
     # json 显示中文
     JSON_AS_ASCII = False
-    # 连接池
-    SQLALCHEMY_POOL_SIZE = 10
     # 测试配置
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:a123456@192.168.2.41:3306/t_kb?charset=utf8"
@@ -88,8 +97,6 @@ class TestingConfig(Config):
 class ProductionConfig(Config):
     # 生产配置
     DEBUG = False
-    # 连接池
-    SQLALCHEMY_POOL_SIZE = 10
     SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:123456@127.0.0.1:3306/blog?charset=utf8"
     SQLALCHEMY_BINDS = {
         'default': SQLALCHEMY_DATABASE_URI,

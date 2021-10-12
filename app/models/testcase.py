@@ -31,7 +31,8 @@ class TestCase(_BaseModel):
     pid = db.Column('pid', db.String(32), nullable=False, comment="归属项目")
     Iid = db.Column('Iid', db.String(32), nullable=False, comment="归属接口")
     route = db.Column('route', db.String(1024), nullable=False, comment="接口地址")
-    headers = db.Column('headers', db.String(256), nullable=False, comment="请求头")
+    # headers = db.Column('headers', db.String(256), nullable=False, comment="请求头")
+    headers = db.Column('headers', db.JSON, nullable=False, comment="请求头")
     requestMethod = db.Column('requestMethod', db.String(64), nullable=False, comment="请求方式")
     requestBody = db.Column('requestBody', db.String(256), nullable=True, comment="请求体")
 
@@ -62,7 +63,21 @@ class TestCase(_BaseModel):
     # filePath = db.Column('filePath', db.String(256), nullable=True)
 
 
+
+    def check_requestBody(self):
+        if self.requestBody != None and self.requestBody != "":
+            return [eval(self.requestBody)]
+        else:
+            return self.requestBody
+
     def get_json(self):
+        _requestBody = None
+        if self.parameterType.lower() == "form-data":
+            _requestBody = self.check_requestBody()
+        elif self.parameterType.lower() == "json":
+            _requestBody = self.check_requestBody()
+        else:
+            _requestBody = self.requestBody
         return {
             "object_id": self.object_id,
             "uid": self.uid,
@@ -78,7 +93,8 @@ class TestCase(_BaseModel):
             "route": self.route,
             "parameterType": self.parameterType,
             "filePath": self.filePath,
-            "requestBody": self.requestBody,
+            # "requestBody": self.requestBody,
+            "requestBody": _requestBody,
             "responseBody": self.responseBody,
 
             "setGlobalVars": self.setGlobalVars,
